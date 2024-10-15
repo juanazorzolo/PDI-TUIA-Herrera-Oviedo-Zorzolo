@@ -40,11 +40,10 @@ plt.subplot(1, 2, 1), plt.imshow(img, cmap='gray'), plt.title('Imagen original')
 plt.subplot(1, 2, 2), plt.imshow(img_equalized, cmap='gray'), plt.title('Imagen con ecualización local')
 plt.show()
 
-
 # --- Ejercicio 2 (corregir examen) -------------------------------------------
 
 # --- Cargo imagen ------------------------------------------------------------
-img2 = cv2.imread('cambiar ruta',cv2.IMREAD_GRAYSCALE) 
+img2 = cv2.imread('C:/Users/juana/OneDrive/Documentos/PDI1/TP PDI/examen_.png',cv2.IMREAD_GRAYSCALE) 
 img2.shape
 plt.figure(), plt.imshow(img2, cmap='gray'), plt.show(block=False)  
 #si no se especifica vmin y vmax en imshow, toma como negro el minimo valor y como blanco el max 
