@@ -113,3 +113,44 @@ plt.show()
 
 # --- ANÁLISIS --------------------------------------------------------------
 print(f"Se detectaron {len(letras)} opciones.")
+
+
+
+
+""" 
+# FUNCIÓN Y GRÁFICO PARA HISTOGRAMA ACUMULATIVO
+
+# Función para graficar el histograma acumulativo
+def plot_cumulative_histogram(image, ax, title):
+   #Calcula y grafica el histograma acumulativo de una imagen.
+    hist, bins = np.histogram(image.flatten(), bins=256, range=[0, 256])
+    cdf = hist.cumsum()  # Calcula el histograma acumulativo
+    cdf_normalized = cdf * hist.max() / cdf.max()  # Normalizar para graficar
+
+    ax.plot(cdf_normalized, color='gray')
+    ax.set_title(title)
+    ax.set_xlim([0, 256])
+
+# Mostrar la imagen original y la imagen ecualizada localmente junto a sus histogramas acumulativos
+plt.figure(figsize=(12, 8))
+
+# Imagen original y su histograma acumulativo
+plt.subplot(2, 2, 1)
+plt.imshow(img, cmap='gray', vmin=0, vmax=255)
+plt.title('Imagen original')
+plt.axis('off')
+
+plt.subplot(2, 2, 2)
+plot_cumulative_histogram(img, plt.gca(), 'Histograma acumulativo - Imagen original')
+
+# Imagen ecualizada localmente y su histograma acumulativo
+plt.subplot(2, 2, 3)
+plt.imshow(img_equalized, cmap='gray', vmin=0, vmax=255)
+plt.title('Imagen con ecualización local')
+plt.axis('off')
+
+plt.subplot(2, 2, 4)
+plot_cumulative_histogram(img_equalized, plt.gca(), 'Histograma acumulativo - Imagen ecualizada local')
+
+plt.tight_layout()
+plt.show() """
