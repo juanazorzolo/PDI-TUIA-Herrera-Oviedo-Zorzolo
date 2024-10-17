@@ -7,7 +7,6 @@ import matplotlib.pyplot as plt
 # Implementar la ecualización local del histograma
 def local_histogram_equalization(img, window_size):
     """Aplica ecualización local de histograma a la imagen con una ventana deslizante de tamaño window_size."""
-    # Desempaquetar el tamaño de la ventana
     M, N = window_size
     
     # Crear una imagen de salida con el mismo tamaño que la original
@@ -27,50 +26,46 @@ def local_histogram_equalization(img, window_size):
     
     return img_equalized
 
+# Nueva función para probar múltiples tamaños de ventana
+def process_multiple_window_sizes(img, window_sizes):
+    """Genera imágenes ecualizadas localmente con diferentes tamaños de ventanas."""
+    for window_size in window_sizes:
+        img_equalized = local_histogram_equalization(img, window_size)
+        
+        # Mostrar la imagen original y la imagen ecualizada localmente junto a sus histogramas
+        plt.figure(figsize=(12, 8))
+
+        # Imagen original y su histograma
+        plt.subplot(2, 2, 1)
+        plt.imshow(img, cmap='gray', vmin=0, vmax=255)
+        plt.title('Imagen original')
+        plt.axis('off')
+
+        plt.subplot(2, 2, 2)
+        plt.hist(img.flatten(), bins=256, range=[0, 256], color='gray', log=True)  # Escala logarítmica
+        plt.title('Histograma - Imagen original (escala log)')
+
+        # Imagen ecualizada localmente y su histograma
+        plt.subplot(2, 2, 3)
+        plt.imshow(img_equalized, cmap='gray', vmin=0, vmax=255)
+        plt.title(f'Imagen con ecualización local (Ventana {window_size[0]}x{window_size[1]})')
+        plt.axis('off')
+
+        # Histograma de la imagen ecualizada localmente
+        plt.subplot(2, 2, 4)
+        plt.hist(img_equalized.flatten(), bins=256, range=[0, 256], color='gray', log=True)  # Escala logarítmica
+        plt.title('Histograma - Imagen ecualizada local (escala log)')
+
+        plt.tight_layout()
+        plt.show()
+
 # Cargar la imagen en escala de grises
-img = cv2.imread('C:/Users/juana/OneDrive/Documentos/PDI1/TP PDI/Imagen_con_detalles_escondidos.tif',cv2.IMREAD_GRAYSCALE) 
+img = cv2.imread('C:/Users/juana/OneDrive/Documentos/PDI1/TP PDI/Imagen_con_detalles_escondidos.tif', cv2.IMREAD_GRAYSCALE)
 
-# Aplicar la ecualización local de histograma con una ventana de MXN
-window_size = (15, 15)
-img_equalized = local_histogram_equalization(img, window_size)
+# Aplicar la ecualización local de histograma con múltiples tamaños de ventana
+window_sizes = [(7, 7), (15, 15), (31, 31)]
+process_multiple_window_sizes(img, window_sizes)
 
-"""
-ESTE ES EL PRIMER GRÁFICO QUE USE SIN HABER PUESTO EL HISTOGRAMA 
-
-# Mostrar la imagen original y la imagen ecualizada localmente
-plt.figure(figsize=(12, 6))
-plt.subplot(1, 2, 1), plt.imshow(img, cmap='gray'), plt.title('Imagen original')
-plt.subplot(1, 2, 2), plt.imshow(img_equalized, cmap='gray'), plt.title('Imagen con ecualización local')
-plt.show()
-
-"""
-
-# Mostrar la imagen original y la imagen ecualizada localmente junto a sus histogramas
-plt.figure(figsize=(12, 8))
-
-# Imagen original y su histograma
-plt.subplot(2, 2, 1)
-plt.imshow(img, cmap='gray', vmin=0, vmax=255)
-plt.title('Imagen original')
-plt.axis('off')
-
-plt.subplot(2, 2, 2)
-plt.hist(img.flatten(), bins=256, range=[0, 256], color='gray', log=True)  # Escala logarítmica
-plt.title('Histograma - Imagen original (escala log)')
-
-# Imagen ecualizada localmente y su histograma
-plt.subplot(2, 2, 3)
-plt.imshow(img_equalized, cmap='gray', vmin=0, vmax=255)
-plt.title('Imagen con ecualización local')
-plt.axis('off')
-
-# Modificación del histograma para usar una escala logarítmica para poder visualizar mejor y comparar entre los 2
-plt.subplot(2, 2, 4)
-plt.hist(img_equalized.flatten(), bins=256, range=[0, 256], color='gray', log=True)  # Escala logarítmica
-plt.title('Histograma - Imagen ecualizada local (escala log)')
-
-plt.tight_layout()
-plt.show()
 
 # --- Ejercicio 2 (corregir examen) -------------------------------------------
 
