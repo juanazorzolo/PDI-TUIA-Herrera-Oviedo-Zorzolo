@@ -400,3 +400,5 @@ for (x, y, w, h) in bounding_boxes:
 
 # Mostrar imagen con bounding boxes
 show_image('Bounding Boxes Detectadas', image_with_boxes, cmap=None)
+
+
