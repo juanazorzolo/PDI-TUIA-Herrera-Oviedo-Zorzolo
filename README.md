@@ -13,7 +13,7 @@ Antes de ejecutar el código, asegúrate de tener instaladas las siguientes bibl
 
 ## Uso
 
-1. **Descargar carpeta Examenes**: Asegurarse de que la carpeta se descargue correctamente, copiar la ruta de la carpeta y pegarla en el codigo remplzando "C:/Users/juana/OneDrive/Documentos/PDI1/TP PDI/examenes/".
+1. **Descargar carpeta Examenes**: Asegúrate de que la carpeta se descargue correctamente, copia la ruta de la carpeta y pégala en el código reemplazando `C:/Users/juana/OneDrive/Documentos/PDI1/TP PDI/examenes/`.
 
 2. **Ejecutar el Código**: Abre tu terminal o consola de comandos, navega al directorio del proyecto y ejecuta el siguiente comando: `python codigo.py`. Esto ejecutará el script que procesa las imágenes.
 
@@ -35,12 +35,12 @@ Pregunta 2: Detectada = B, Correcta = B -> BIEN
 ...  
 Resultados finales:  
 8  
-  
 
 ## Notas
 
-- Asegúrate de remplzar:
+- Asegúrate de reemplazar:
 
-  'D:/Users/mvovi/OneDrive/Escritorio/TUIA/2024/2so cuatri/PDI/imagenes_examenes/nombre_cortado.png' por ' ruta caprta propia..../imagenes_examenes/nombre_cortado.png'
+  `'D:/Users/mvovi/OneDrive/Escritorio/TUIA/2024/2so cuatri/PDI/imagenes_examenes/nombre_cortado.png'` por `'ruta carpeta propia..../imagenes_examenes/nombre_cortado.png'`
 
-  'D:/Users/mvovi/OneDrive/Escritorio/TUIA/2024/2so cuatri/PDI/notas_finales.png' por por ' ruta caprta propia..../notas_finales.png'
+  `'D:/Users/mvovi/OneDrive/Escritorio/TUIA/2024/2so cuatri/PDI/notas_finales.png'` por `'ruta carpeta propia..../notas_finales.png'`
+
