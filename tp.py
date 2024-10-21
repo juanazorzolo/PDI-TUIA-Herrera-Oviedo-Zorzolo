@@ -68,115 +68,429 @@ process_multiple_window_sizes(img, window_sizes)
 
 
 # --- Ejercicio 2 (corregir examen) -------------------------------------------
+# EJERCICIO 2
+import cv2
+import numpy as np
+import os
+import matplotlib.pyplot as plt
+from matplotlib.patches import Rectangle
+from PIL import Image, ImageDraw, ImageFont
 
-# --- Cargo imagen ------------------------------------------------------------
+# ---------------------------------------------
+# FUNCIONES AUXILIARES 
+# ---------------------------------------------
 
-# Función auxiliar para mostrar imágenes
 def show_image(title, image, cmap='gray'):
+    """Muestra una imagen con título y mapa de color opcional."""
     plt.figure(figsize=(10, 10))
     if cmap == 'gray':
-        plt.imshow(image, cmap='gray')
+        plt.imshow(image, cmap=cmap)
     else:
         plt.imshow(cv2.cvtColor(image, cv2.COLOR_BGR2RGB))
     plt.title(title)
     plt.axis('off')
     plt.show()
 
-image = cv2.imread('C:/Users/morena/Downloads/examen_2.png', cv2.IMREAD_GRAYSCALE)
-plt.figure(), plt.imshow(image, cmap='gray'), plt.show(block=False)
+def is_too_close(new_box, boxes, min_distance=10):
+    """Verifica si una nueva caja está demasiado cerca de las existentes."""
+    x1, y1, w1, h1 = new_box
+    for (x2, y2, w2, h2) in boxes:
+        if abs(x1 - x2) < min_distance and abs(y1 - y2) < min_distance:
+            return True
+    return False
 
-# Aplicar un desenfoque para eliminar ruido
-blurred = cv2.GaussianBlur(image, (5, 5), 0)
+def validar_encabezado(name, date, clase):
+    """Valida que el encabezado cumpla las condiciones requeridas."""
+    if len(name) <= 25 and contar_palabras(name) == 2:
+        print("nombre OK")
+    else:
+        print("nombre MAL")
 
-# Umbralizar la imagen para obtener una imagen binaria
-_, thresh = cv2.threshold(blurred, 150, 255, cv2.THRESH_BINARY_INV)
+    if len(date) == 8:
+        print("date OK")
+    else:
+        print("date MAL")
 
-# Aplicar dilatación y erosión para limpiar la imagen
-kernel = np.ones((3, 3), np.uint8)
-dilated = cv2.dilate(thresh, kernel, iterations=2)
-eroded = cv2.erode(dilated, kernel, iterations=1)
+    if len(clase) == 1:
+        print("class OK")
+    else:
+        print("class MAL")
 
-# Encontrar contornos
-contours, hierarchy = cv2.findContours(eroded, cv2.RETR_EXTERNAL, cv2.CHAIN_APPROX_SIMPLE)
+def contar_palabras(name):
+    """Cuenta las palabras en el nombre detectado."""
+    palabras = 1
+    for i in range(1, len(name)):
+        espacio = name[i]['info'][0] - name[i - 1]['info'][0]
+        if espacio > 13:
+            palabras += 1
+    return palabras
 
-# Copiar la imagen original para dibujar las celdas
-image_with_colored_contours = cv2.cvtColor(image, cv2.COLOR_GRAY2BGR)
+# ---------------------------------------------
+# PROCESAMIENTO DE IMAGEN Y DETECCIÓN DE CONTORNOS
+# ---------------------------------------------
 
-# Definir un tamaño mínimo de celda para evitar que se detecte el contorno de toda la imagen
-min_width, min_height = 30, 30  # Ajustar según el tamaño esperado de las celdas
-min_small_width, min_small_height = 10, 10  # Para las celdas más pequeñas
+def detectar_bounding_boxes(image_path):
+    """Detecta y guarda las bounding boxes en la imagen de entrada."""
+    image = cv2.imread(image_path, cv2.IMREAD_GRAYSCALE)
+    blurred = cv2.GaussianBlur(image, (9, 9), 0)
+    edges = cv2.Canny(blurred, 30, 100)
 
-# Listas para almacenar las celdas detectadas
-celdas_grandes = []
-celdas_pequenas = []
+    # Umbralización
+    _, thresh_otsu = cv2.threshold(edges, 0, 255, cv2.THRESH_BINARY + cv2.THRESH_OTSU)
+    thresh_adaptive = cv2.adaptiveThreshold(edges, 255, cv2.ADAPTIVE_THRESH_GAUSSIAN_C, 
+                                            cv2.THRESH_BINARY_INV, 11, 2)
 
-# Iterar sobre los contornos detectados (celdas grandes)
-for idx, contour in enumerate(contours):
-    x, y, w, h = cv2.boundingRect(contour)
+    # Dilatación y erosión
+    kernel = np.ones((1, 1), np.uint8)
+    eroded = cv2.erode(cv2.dilate(thresh_adaptive, kernel, 2), kernel, 1)
 
-    # Filtrar celdas grandes
-    if w > min_width and h > min_height:
-        # Dibujar el rectángulo alrededor de la celda grande
-        color = (0, 255, 0)  # Verde para las celdas grandes
-        cv2.rectangle(image_with_colored_contours, (x, y), (x + w, y + h), color, 2)
+    contours_otsu, _ = cv2.findContours(thresh_otsu, cv2.RETR_TREE, cv2.CHAIN_APPROX_SIMPLE)
+    contours_adaptive, _ = cv2.findContours(eroded, cv2.RETR_EXTERNAL, cv2.CHAIN_APPROX_SIMPLE)
 
-        # Almacenar la celda grande
-        celdas_grandes.append({'x': x, 'y': y, 'width': w, 'height': h})
+    # Filtrar y ordenar bounding boxes
+    bounding_boxes = filtrar_bounding_boxes(contours_otsu, contours_adaptive)
+    guardar_bounding_boxes(image, bounding_boxes)
 
-        # Crear una máscara para la celda grande
-        mask = np.zeros(image.shape, dtype=np.uint8)
-        cv2.drawContours(mask, [contour], -1, (255, 255, 255), thickness=cv2.FILLED)
+def filtrar_bounding_boxes(contours_otsu, contours_adaptive):
+    """Filtra contornos y genera una lista de bounding boxes."""
+    bounding_boxes = []
+    # Filtrado usando Otsu
+    for contour in contours_otsu:
+        x, y, w, h = cv2.boundingRect(contour)
+        if not is_too_close((x, y, w, h), bounding_boxes) and \
+           ((241 > w > 5) and (126 > h > 121) and (y > 175 or y < 70)):
+            bounding_boxes.append((x, y, w, h))
+    
+    # Filtrado usando método adaptativo
+    for contour in contours_adaptive:
+        x, y, w, h = cv2.boundingRect(contour)
+        if y < 100 and 5 < h < 50 and not is_too_close((x, y, w, h), bounding_boxes):
+            bounding_boxes.append((x, y, w, h))
+    
+    return sorted(bounding_boxes, key=lambda box: (box[0], box[1]))
 
-        # Aplicar la máscara a la imagen original
-        cell_region = cv2.bitwise_and(image, mask)
+def guardar_bounding_boxes(image, bounding_boxes):
+    """Guarda las regiones de interés detectadas como imágenes individuales."""
+    output_dir = 'imagenes_examenes'
+    os.makedirs(output_dir, exist_ok=True)
 
-        # Convertir a escala de grises y umbral para detectar celdas más pequeñas
-        gray_cell = cv2.cvtColor(cell_region, cv2.COLOR_GRAY2BGR)
-        _, thresh_cell = cv2.threshold(gray_cell, 150, 255, cv2.THRESH_BINARY_INV)
+    image_with_boxes = cv2.cvtColor(image, cv2.COLOR_GRAY2BGR)
+    for idx, (x, y, w, h) in enumerate(bounding_boxes):
+        cv2.rectangle(image_with_boxes, (x, y), (x + w, y + h), (0, 255, 0), 2)
+        roi = image[y:y + h, x:x + w]
+        roi_filename = os.path.join(output_dir, f'{"encabezado" if idx == 0 else f"pregunta{idx}"}.png')
+        cv2.imwrite(roi_filename, roi)
 
-        # Encontrar contornos de las celdas más pequeñas
-        small_contours, _ = cv2.findContours(thresh_cell, cv2.RETR_EXTERNAL, cv2.CHAIN_APPROX_SIMPLE)
+    show_image('Bounding Boxes Detectadas', image_with_boxes)
 
-        # Iterar sobre los contornos de las celdas pequeñas
-        for small_contour in small_contours:
-            sx, sy, sw, sh = cv2.boundingRect(small_contour)
+# ---------------------------------------------
+# DETECCIÓN DE LETRAS EN EL ENCABEZADO
+# ---------------------------------------------
 
-            # Filtrar contornos pequeños
-            if sw > min_small_width and sh > min_small_height:
-                # Dibujar el rectángulo alrededor de la celda pequeña
-                cv2.rectangle(image_with_colored_contours, (x + sx, y + sy), (x + sx + sw, y + sy + sh), (255, 0, 0), 2)  # Rojo para celdas pequeñas
+def detectar_letras_y_validar_encabezado(image_path):
+    """Detecta letras en el encabezado y valida su formato."""
+    img = cv2.imread(image_path, cv2.IMREAD_GRAYSCALE)
+    img_bin = cv2.adaptiveThreshold(img, 255, cv2.ADAPTIVE_THRESH_GAUSSIAN_C, cv2.THRESH_BINARY_INV, 15, 3)
 
-                # Almacenar la celda pequeña
-                celdas_pequenas.append({'x': x + sx, 'y': y + sy, 'width': sw, 'height': sh})
+    # Detectar renglones
+    img_row_zeros = img_bin.any(axis=1)
+    renglones_indxs = np.argwhere(np.diff(img_row_zeros))[::2] + 1
 
-# Mostrar la imagen con las celdas grandes y pequeñas detectadas
-show_image('Celdas grandes y pequeñas detectadas', image_with_colored_contours)
+    letras = detectar_letras(img, img_bin, renglones_indxs)
+    name, date, clase = separar_letras(letras)
+    validar_encabezado(name, date, clase)
 
-# Imprimir las celdas detectadas
-print("Celdas grandes detectadas:", celdas_grandes)
-print("Celdas pequeñas detectadas:", celdas_pequenas)
+def detectar_letras(imagen, img_bin, renglones_indxs):
+    """Detecta las letras en cada renglón."""
+    letras = []
+    for i in range(len(renglones_indxs) - 1):
+        start, end = renglones_indxs[i][0], renglones_indxs[i + 1][0]
+        renglon_img = img_bin[start:end, :]
+        contours, _ = cv2.findContours(renglon_img, cv2.RETR_EXTERNAL, cv2.CHAIN_APPROX_SIMPLE)
 
+        for contour in contours:
+            x, y, w, h = cv2.boundingRect(contour)
+            if w > 1 and h > 2:
+                letras.append({"renglón": i + 1, "cord": [start + y, x, start + y + h, x + w], "info": (x, y, w, h)})
+                cv2.rectangle(imagen, (x, start + y), (x + w, start + y + h), (0, 255, 0), 2) 
 
-""" OPCIÓN 2 """
-# Encontrar contornos
-contours, hierarchy = cv2.findContours(eroded, cv2.RETR_EXTERNAL, cv2.CHAIN_APPROX_SIMPLE)
+    # Mostrar la imagen con las bounding boxes
+    show_image('Letras Detectadas', imagen)
+    return sorted(letras, key=lambda letra: letra['info'][0])
 
-# Copiar la imagen original para dibujar las celdas
-image_with_colored_contours = image.copy()
+def separar_letras(letras):
+    """Separa las letras en secciones de nombre, fecha y clase."""
+    name = [l for l in letras if 50 < l['info'][0] < 245]
+    date = [l for l in letras if 290 < l['info'][0] < 364]
+    clase = [l for l in letras if 411 < l['info'][0] < 542]
+    return name, date, clase
 
-# Definir un tamaño mínimo de celda para evitar que se detecte el contorno de toda la imagen
-min_width, min_height = 30, 30  # Ajustar según el tamaño esperado de las celdas
+# ---------------------------------------------
+# DETECCIÓN DE LÍNEAS Y RESPUESTAS
+# ---------------------------------------------
 
-# Iterar sobre los contornos detectados
-for idx, contour in enumerate(contours):
-    x, y, w, h = cv2.boundingRect(contour)
+def contar_contornos_internos(imagen_bin):
+    # Invertir la imagen (letras en blanco sobre fondo negro)
+    imagen_bin = cv2.bitwise_not(imagen_bin)
 
-    # Filtrar contornos muy pequeños o muy grandes que no son celdas
-    if w > min_width and h > min_height:
-        # Asignar el color verde a todas las celdas
-        color = (0, 255, 0)  # Verde para todas las celdas
-        # Dibujar el rectángulo alrededor de la celda
-        cv2.rectangle(image_with_colored_contours, (x, y), (x + w, y + h), color, 2)
+    # Encontrar contornos internos
+    contornos_internos, _ = cv2.findContours(imagen_bin, cv2.RETR_CCOMP, cv2.CHAIN_APPROX_SIMPLE)
+    return contornos_internos
 
-# Mostrar la imagen con las celdas detectadas y coloreadas en verde
-show_image('Celdas detectadas en verde', image_with_colored_contours)
+def detectar_linea_y_extraer_respuesta(image_path, output_dir):
+    """Detecta línea horizontal y extrae el texto encima."""
+    image = cv2.imread(image_path, cv2.IMREAD_GRAYSCALE)
+
+    image = image[2:, :]  # Recortar ligeramente la imagen
+    _, thresh = cv2.threshold(image, 200, 255, cv2.THRESH_BINARY_INV)
+
+    kernel = np.ones((1, 50), np.uint8)
+    morphed = cv2.morphologyEx(thresh, cv2.MORPH_OPEN, kernel)
+    
+    contours, _ = cv2.findContours(morphed, cv2.RETR_EXTERNAL, cv2.CHAIN_APPROX_SIMPLE)
+
+    img_contours = cv2.cvtColor(image, cv2.COLOR_GRAY2BGR)
+    cv2.drawContours(img_contours, contours, -1, (0, 255, 0), 2)
+    #show_image('Contornos Detectados', img_contours, cmap=None)
+
+    linea_negra = None
+    altura_maxima = 0
+    
+    for contour in contours:
+        x, y, w, h = cv2.boundingRect(contour)
+        if w > 50 and h < 10 and h > altura_maxima:
+            linea_negra = (x, y, w, h)
+            altura_maxima = h
+
+    if linea_negra:
+        x, y, w, h = linea_negra
+        roi_respuesta = image[max(0, y-15):y, x:x+w]
+        output_filename = os.path.join(output_dir, os.path.basename(image_path))
+        cv2.imwrite(output_filename, roi_respuesta)
+        #show_image(f"Respuesta Detectada en {os.path.basename(image_path)}", roi_respuesta)
+    else:
+        print(f"No se detectó línea horizontal en {os.path.basename(image_path)}")
+
+def hay_linea_vertical(contorno):
+    # Aproximar el contorno para reducir el número de puntos
+    epsilon = 5
+    contorno_aproximado = cv2.approxPolyDP(contorno, epsilon, True)
+
+    # Buscar el bounding box del contorno
+    x, y, w, h = cv2.boundingRect(contorno_aproximado)
+
+    # Verificar si el ancho es menor que una fracción del alto, indicando una línea vertical
+    if w < h / 2:
+        return True  # Se considera una línea vertical
+    return False  # No hay línea vertical
+
+def determinar_letra_desde_respuestas(carpeta):
+    respuestas_detectadas = {}
+    """Determina las letras a partir de las imágenes procesadas."""
+    for nombre_archivo in os.listdir(carpeta):
+        ruta_imagen = os.path.join(carpeta, nombre_archivo)
+        imagen = cv2.imread(ruta_imagen, cv2.IMREAD_GRAYSCALE)
+        
+        imagen_recortada = imagen[1:-1, 5:-5]  # Recortar bordes
+        _, umbral = cv2.threshold(imagen_recortada, 127, 255, cv2.THRESH_BINARY)
+
+        contornos_internos = contar_contornos_internos(umbral)
+        letra = '?'
+
+        if len(contornos_internos) == 0:
+            letra = 'No hay respuesta'
+        elif len(contornos_internos) == 1:
+            letra = 'C'
+        elif len(contornos_internos) == 2:
+            if hay_linea_vertical(contornos_internos[1]):
+                letra = 'D'
+            else:
+                letra = 'A'
+        elif len(contornos_internos) == 3:
+            letra = 'B'
+        else:
+            letra = "Respuesta inválida"
+
+        respuestas_detectadas[nombre_archivo] = letra
+
+        cv2.putText(imagen, letra, (10, 30), cv2.FONT_HERSHEY_SIMPLEX, 1, (0, 0, 255), 2)
+        cv2.imshow("Letra Detectada", imagen)
+        cv2.waitKey(500)
+
+    return (respuestas_detectadas)
+
+def validar_rtas(respuestas_detectadas):
+    # Lista de respuestas correctas
+    rtas_correctas = ['C', 'B', 'A', 'D', 'B', 'B', 'A', 'B', 'D', 'D']
+
+    # Ordenar las claves del diccionario para asegurar correspondencia con las respuestas correctas
+    respuestas_ordenadas = [respuestas_detectadas[f'pregunta{i+1}.png'] for i in range(10)]
+
+    # Lista para almacenar los resultados ("BIEN" o "MAL")
+    resultados = []
+    nota = 0
+
+    # Comparar cada respuesta detectada con la correcta
+    for i, (rta_detectada, rta_correcta) in enumerate(zip(respuestas_ordenadas, rtas_correctas)):
+        if rta_detectada == rta_correcta:
+            resultados.append("BIEN")
+            nota += 1
+        else:
+            resultados.append("MAL")
+
+        # Mostrar el resultado de cada pregunta
+        print(f"Pregunta {i+1}: Detectada = {rta_detectada}, Correcta = {rta_correcta} -> {resultados[-1]}")
+    
+    print("Resultados finales:")
+    print(nota)
+    if nota >= 6:
+        estado = "APROBADO"
+    else:
+        estado = "DESAPROBADO"
+
+    return resultados, estado
+
+def extraer_nombre(image_path, output_dir, top_margin=30, bottom_margin=10):
+    """Detecta líneas en la imagen y devuelve el contenido arriba y abajo de la línea más ancha."""
+    # Cargar la imagen
+    img = cv2.imread(image_path)
+    img_gray = cv2.cvtColor(img, cv2.COLOR_BGR2GRAY)
+
+    # Aplicar umbral para binarizar la imagen
+    _, img_bin = cv2.threshold(img_gray, 150, 255, cv2.THRESH_BINARY_INV)
+
+    # Detectar líneas en la imagen
+    lineas = cv2.HoughLinesP(img_bin, 1, np.pi / 180, threshold=100, minLineLength=100, maxLineGap=10)
+
+    # Encontrar la línea más ancha
+    widest_line = None
+    max_width = 0
+
+    if lineas is not None:
+        for linea in lineas:
+            for x1, y1, x2, y2 in linea:
+                # Calcular el ancho de la línea
+                width = abs(y2 - y1)
+                if width > max_width:
+                    max_width = width
+                    widest_line = (y1, y2)  # Guardamos las coordenadas y de la línea
+
+    if widest_line:
+        y_top = min(widest_line) - top_margin  # Parte superior de la línea con margen
+        y_bottom = max(widest_line) + bottom_margin  # Parte inferior de la línea con margen
+
+        # Asegurarse de que los valores de y estén dentro del rango de la imagen
+        y_top = max(y_top, 0)
+        y_bottom = min(y_bottom, img.shape[0] - 1)
+
+        # Recortar solo
+        x_start = 5
+        x_end = 10
+        img_content = img[y_top:y_bottom, x_start:x_end]
+        return img_content
+    else:
+        print("No se encontraron líneas.")
+        return None
+
+def generar_imagen_final():
+    image_path = 'imagenes_examenes/encabezado.png'
+    imagen_nombre = cv2.imread(image_path)
+    
+    if imagen_nombre is None:
+        print(f"Error: no se pudo cargar la imagen en {image_path}")
+        return
+    
+    show_image('Nombre del Alumno', imagen_nombre)
+
+    cv2.imwrite('C:/Users/juana/OneDrive/Documentos/PDI1/TP PDI/imagenes_examenes/nombre_cortado.png', imagen_nombre)
+
+def generar_imagen_con_resultado(campo_nombre, resultado):
+    # Crear una nueva imagen en blanco
+    ancho, alto = 400, 200  # Define el tamaño de la imagen
+    notas_finales = Image.new('RGB', (ancho, alto), color='white')
+    draw = ImageDraw.Draw(notas_finales)
+
+    # Cargar la imagen recortada (campo de nombre)
+    nombre_imagen = Image.open(campo_nombre)
+    
+    # Pegar la imagen recortada en la nueva imagen
+    notas_finales.paste(nombre_imagen, (5, 5))  # Ajusta la posición según sea necesario
+
+    # Escribir el resultado de la función en la imagen
+    font = ImageFont.load_default()  # Cargar una fuente
+    draw.text((150, 150), f'Resultado: {resultado}', fill='black', font=font)
+
+    # Guardar la nueva imagen
+    notas_finales.save('C:/Users/juana/OneDrive/Documentos/PDI1/TP PDI/notas_finales.png')
+
+    show_image('NOTAS FINALES', notas_finales)
+
+# ---------------------------------------------
+# PROGRAMA PRINCIPAL
+# ---------------------------------------------
+
+def generar_imagen_con_resultado(campo_nombre, resultado):
+    # Crear una nueva imagen en blanco
+    ancho, alto = 400, 200  # Define el tamaño de la imagen
+    notas_finales = Image.new('RGB', (ancho, alto), color='white')
+    draw = ImageDraw.Draw(notas_finales)
+
+    # Cargar la imagen recortada (campo de nombre)
+    try:
+        nombre_imagen = Image.open(campo_nombre)
+    except FileNotFoundError:
+        print(f"Error: no se encontró el archivo {campo_nombre}")
+        return
+    
+    # Pegar la imagen recortada en la nueva imagen
+    notas_finales.paste(nombre_imagen, (10, 10))  # Ajusta la posición según sea necesario
+
+    # Escribir el resultado de la función en la imagen
+    font = ImageFont.load_default()  # Cargar una fuente
+    draw.text((150, 150), f'Resultado: {resultado}', fill='black', font=font)
+
+    # Guardar la nueva imagen
+    output_path = 'C:/Users/juana/OneDrive/Documentos/PDI1/TP PDI/notas_finales.png'
+    notas_finales.save(output_path)
+
+    show_image('NOTAS FINALES', cv2.cvtColor(np.array(notas_finales), cv2.COLOR_RGB2BGR))
+
+def ultima(examen, output_dir):
+    # Detectar y guardar bounding boxes
+    detectar_bounding_boxes(examen)
+
+    # Detectar letras en el encabezado
+    detectar_letras_y_validar_encabezado('imagenes_examenes/encabezado.png')
+
+    # Procesar las respuestas desde las imágenes de preguntas
+    input_dir = 'imagenes_examenes'
+    output_dir = 'respuestas'
+    os.makedirs(output_dir, exist_ok=True)
+
+    for filename in os.listdir(input_dir):
+        if filename.startswith('pregunta') and filename.endswith('.png'):
+            image_path = os.path.join(input_dir, filename)
+            detectar_linea_y_extraer_respuesta(image_path, output_dir)
+
+    # Determinar las letras detectadas en las respuestas
+    carpeta_respuestas = 'respuestas'
+    respuestas_detectadas = determinar_letra_desde_respuestas(carpeta_respuestas)
+    print(respuestas_detectadas)
+    resultados_finales, estado = validar_rtas(respuestas_detectadas)
+
+    generar_imagen_final()
+    imagen_nombre = 'C:/Users/juana/OneDrive/Documentos/PDI1/TP PDI/imagenes_examenes/nombre_cortado.png'
+    generar_imagen_con_resultado(imagen_nombre, estado)
+
+    # Mostrar la lista final de resultados
+    print("Proceso completado.")
+
+# Listar todos los exámenes
+exams = ['examen_1.png', 'examen_2.png', 'examen_3.png', 'examen_4.png', 'examen_5.png']
+output_base_dir = 'IMAGENES_POR_EXAMEN'
+
+# Procesar cada examen
+for exam in exams:
+    exam_path = f'C:/Users/juana/OneDrive/Documentos/PDI1/TP PDI/examenes/{exam}'
+    output_dir = os.path.join(output_base_dir, f'{os.path.splitext(exam)[0]}_output')
+    ultima(exam_path, output_dir)
