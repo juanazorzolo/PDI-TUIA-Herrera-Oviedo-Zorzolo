@@ -1,38 +1,35 @@
+# Importamos librerías útiles para el tp
 import cv2
 import numpy as np
 import matplotlib.pyplot as plt
+import os
+from matplotlib.patches import Rectangle
+from PIL import Image, ImageDraw, ImageFont
 
 # --- Ejercicio 1 (ecualizar histograma) --------------------------------------
 
-# Implementar la ecualización local del histograma
 def local_histogram_equalization(img, window_size):
-    """Aplica ecualización local de histograma a la imagen con una ventana deslizante de tamaño window_size."""
+    """Aplicamos ecualización local de histograma a la imagen con una ventana deslizante de tamaño window_size."""
     M, N = window_size
-    
-    # Crear una imagen de salida con el mismo tamaño que la original
     img_equalized = np.zeros_like(img)
     
-    # Añadir borde para evitar problemas en los bordes de la imagen
+    # Añadimos borde para evitar problemas en los bordes de la imagen
     img_padded = cv2.copyMakeBorder(img, M//2, M//2, N//2, N//2, borderType=cv2.BORDER_REPLICATE)
-    
-    # Recorrer cada píxel de la imagen original
+
     for i in range(img.shape[0]):
         for j in range(img.shape[1]):
-            # Extraer la ventana local (M x N) centrada en el píxel actual
             window = img_padded[i:i+M, j:j+N]
             
-            # Aplicar ecualización de histograma a la ventana local
+            # Ecualización a la ventana local
             img_equalized[i, j] = cv2.equalizeHist(window)[M//2, N//2]
     
     return img_equalized
 
-# Nueva función para probar múltiples tamaños de ventana
+# Función para variar tamaños de ventanas
 def process_multiple_window_sizes(img, window_sizes):
-    """Genera imágenes ecualizadas localmente con diferentes tamaños de ventanas."""
+    """Generamos imágenes ecualizadas localmente con diferentes tamaños de ventanas."""
     for window_size in window_sizes:
         img_equalized = local_histogram_equalization(img, window_size)
-        
-        # Mostrar la imagen original y la imagen ecualizada localmente junto a sus histogramas
         plt.figure(figsize=(12, 8))
 
         # Imagen original y su histograma
@@ -59,29 +56,21 @@ def process_multiple_window_sizes(img, window_sizes):
         plt.tight_layout()
         plt.show()
 
-# Cargar la imagen en escala de grises
+# Carga de la imagen 
 img = cv2.imread('C:/Users/juana/OneDrive/Documentos/PDI1/TP PDI/Imagen_con_detalles_escondidos.tif', cv2.IMREAD_GRAYSCALE)
 
-# Aplicar la ecualización local de histograma con múltiples tamaños de ventana
+# Ecualización local de histograma con múltiples tamaños de ventana
 window_sizes = [(7, 7), (15, 15), (31, 31)]
 process_multiple_window_sizes(img, window_sizes)
 
 
 # --- Ejercicio 2 (corregir examen) -------------------------------------------
-# EJERCICIO 2
-import cv2
-import numpy as np
-import os
-import matplotlib.pyplot as plt
-from matplotlib.patches import Rectangle
-from PIL import Image, ImageDraw, ImageFont
 
-# ---------------------------------------------
 # FUNCIONES AUXILIARES 
 # ---------------------------------------------
 
 def show_image(title, image, cmap='gray'):
-    """Muestra una imagen con título y mapa de color opcional."""
+    """Mostramos una imagen con título y mapa de color opcional."""
     plt.figure(figsize=(10, 10))
     if cmap == 'gray':
         plt.imshow(image, cmap=cmap)
@@ -92,7 +81,7 @@ def show_image(title, image, cmap='gray'):
     plt.show()
 
 def is_too_close(new_box, boxes, min_distance=10):
-    """Verifica si una nueva caja está demasiado cerca de las existentes."""
+    """Verificamos si una nueva caja está demasiado cerca de las existentes."""
     x1, y1, w1, h1 = new_box
     for (x2, y2, w2, h2) in boxes:
         if abs(x1 - x2) < min_distance and abs(y1 - y2) < min_distance:
@@ -100,7 +89,7 @@ def is_too_close(new_box, boxes, min_distance=10):
     return False
 
 def validar_encabezado(name, date, clase):
-    """Valida que el encabezado cumpla las condiciones requeridas."""
+    """Validamos que el encabezado cumpla las condiciones requeridas."""
     if len(name) <= 25 and contar_palabras(name) == 2:
         print("nombre OK")
     else:
@@ -117,7 +106,7 @@ def validar_encabezado(name, date, clase):
         print("class MAL")
 
 def contar_palabras(name):
-    """Cuenta las palabras en el nombre detectado."""
+    """Contamos las palabras en el nombre detectado."""
     palabras = 1
     for i in range(1, len(name)):
         espacio = name[i]['info'][0] - name[i - 1]['info'][0]
@@ -125,12 +114,11 @@ def contar_palabras(name):
             palabras += 1
     return palabras
 
-# ---------------------------------------------
 # PROCESAMIENTO DE IMAGEN Y DETECCIÓN DE CONTORNOS
 # ---------------------------------------------
 
 def detectar_bounding_boxes(image_path):
-    """Detecta y guarda las bounding boxes en la imagen de entrada."""
+    """Detectamos y guardamos las bounding boxes en la imagen de entrada."""
     image = cv2.imread(image_path, cv2.IMREAD_GRAYSCALE)
     blurred = cv2.GaussianBlur(image, (9, 9), 0)
     edges = cv2.Canny(blurred, 30, 100)
@@ -147,21 +135,20 @@ def detectar_bounding_boxes(image_path):
     contours_otsu, _ = cv2.findContours(thresh_otsu, cv2.RETR_TREE, cv2.CHAIN_APPROX_SIMPLE)
     contours_adaptive, _ = cv2.findContours(eroded, cv2.RETR_EXTERNAL, cv2.CHAIN_APPROX_SIMPLE)
 
-    # Filtrar y ordenar bounding boxes
+    # Filtramos y ordenamos bounding boxes
     bounding_boxes = filtrar_bounding_boxes(contours_otsu, contours_adaptive)
     guardar_bounding_boxes(image, bounding_boxes)
 
 def filtrar_bounding_boxes(contours_otsu, contours_adaptive):
-    """Filtra contornos y genera una lista de bounding boxes."""
+    """Filtramos contornos y generamos una lista de bounding boxes."""
     bounding_boxes = []
-    # Filtrado usando Otsu
     for contour in contours_otsu:
         x, y, w, h = cv2.boundingRect(contour)
         if not is_too_close((x, y, w, h), bounding_boxes) and \
            ((241 > w > 5) and (126 > h > 121) and (y > 175 or y < 70)):
             bounding_boxes.append((x, y, w, h))
     
-    # Filtrado usando método adaptativo
+
     for contour in contours_adaptive:
         x, y, w, h = cv2.boundingRect(contour)
         if y < 100 and 5 < h < 50 and not is_too_close((x, y, w, h), bounding_boxes):
@@ -170,7 +157,7 @@ def filtrar_bounding_boxes(contours_otsu, contours_adaptive):
     return sorted(bounding_boxes, key=lambda box: (box[0], box[1]))
 
 def guardar_bounding_boxes(image, bounding_boxes):
-    """Guarda las regiones de interés detectadas como imágenes individuales."""
+    """Guardamos las regiones de interés detectadas como imágenes individuales."""
     output_dir = 'imagenes_examenes'
     os.makedirs(output_dir, exist_ok=True)
 
@@ -183,16 +170,15 @@ def guardar_bounding_boxes(image, bounding_boxes):
 
     show_image('Bounding Boxes Detectadas', image_with_boxes)
 
-# ---------------------------------------------
+
 # DETECCIÓN DE LETRAS EN EL ENCABEZADO
 # ---------------------------------------------
 
 def detectar_letras_y_validar_encabezado(image_path):
-    """Detecta letras en el encabezado y valida su formato."""
+    """Detectamos letras en el encabezado y valida su formato."""
     img = cv2.imread(image_path, cv2.IMREAD_GRAYSCALE)
     img_bin = cv2.adaptiveThreshold(img, 255, cv2.ADAPTIVE_THRESH_GAUSSIAN_C, cv2.THRESH_BINARY_INV, 15, 3)
 
-    # Detectar renglones
     img_row_zeros = img_bin.any(axis=1)
     renglones_indxs = np.argwhere(np.diff(img_row_zeros))[::2] + 1
 
@@ -201,7 +187,7 @@ def detectar_letras_y_validar_encabezado(image_path):
     validar_encabezado(name, date, clase)
 
 def detectar_letras(imagen, img_bin, renglones_indxs):
-    """Detecta las letras en cada renglón."""
+    """Detectamos las letras en cada renglón."""
     letras = []
     for i in range(len(renglones_indxs) - 1):
         start, end = renglones_indxs[i][0], renglones_indxs[i + 1][0]
@@ -214,34 +200,30 @@ def detectar_letras(imagen, img_bin, renglones_indxs):
                 letras.append({"renglón": i + 1, "cord": [start + y, x, start + y + h, x + w], "info": (x, y, w, h)})
                 cv2.rectangle(imagen, (x, start + y), (x + w, start + y + h), (0, 255, 0), 2) 
 
-    # Mostrar la imagen con las bounding boxes
     show_image('Letras Detectadas', imagen)
     return sorted(letras, key=lambda letra: letra['info'][0])
 
 def separar_letras(letras):
-    """Separa las letras en secciones de nombre, fecha y clase."""
+    """Separamos las letras en secciones de nombre, fecha y clase."""
     name = [l for l in letras if 50 < l['info'][0] < 245]
     date = [l for l in letras if 290 < l['info'][0] < 364]
     clase = [l for l in letras if 411 < l['info'][0] < 542]
     return name, date, clase
 
-# ---------------------------------------------
+
 # DETECCIÓN DE LÍNEAS Y RESPUESTAS
 # ---------------------------------------------
 
 def contar_contornos_internos(imagen_bin):
-    # Invertir la imagen (letras en blanco sobre fondo negro)
     imagen_bin = cv2.bitwise_not(imagen_bin)
-
-    # Encontrar contornos internos
     contornos_internos, _ = cv2.findContours(imagen_bin, cv2.RETR_CCOMP, cv2.CHAIN_APPROX_SIMPLE)
     return contornos_internos
 
 def detectar_linea_y_extraer_respuesta(image_path, output_dir):
-    """Detecta línea horizontal y extrae el texto encima."""
+    """Detectamos línea horizontal y extraemos el texto encima."""
     image = cv2.imread(image_path, cv2.IMREAD_GRAYSCALE)
 
-    image = image[2:, :]  # Recortar ligeramente la imagen
+    image = image[2:, :]  
     _, thresh = cv2.threshold(image, 200, 255, cv2.THRESH_BINARY_INV)
 
     kernel = np.ones((1, 50), np.uint8)
@@ -272,26 +254,26 @@ def detectar_linea_y_extraer_respuesta(image_path, output_dir):
         print(f"No se detectó línea horizontal en {os.path.basename(image_path)}")
 
 def hay_linea_vertical(contorno):
-    # Aproximar el contorno para reducir el número de puntos
+    # Aproximamos el contorno para reducir el número de puntos
     epsilon = 5
     contorno_aproximado = cv2.approxPolyDP(contorno, epsilon, True)
 
-    # Buscar el bounding box del contorno
+    # Buscamos el bounding box del contorno
     x, y, w, h = cv2.boundingRect(contorno_aproximado)
 
-    # Verificar si el ancho es menor que una fracción del alto, indicando una línea vertical
+    # Verificamos si el ancho es menor que una fracción del alto, indicando una línea vertical
     if w < h / 2:
-        return True  # Se considera una línea vertical
-    return False  # No hay línea vertical
-
+        return True  
+    return False 
+ 
 def determinar_letra_desde_respuestas(carpeta):
     respuestas_detectadas = {}
-    """Determina las letras a partir de las imágenes procesadas."""
+    """Determinamos las letras a partir de las imágenes procesadas."""
     for nombre_archivo in os.listdir(carpeta):
         ruta_imagen = os.path.join(carpeta, nombre_archivo)
         imagen = cv2.imread(ruta_imagen, cv2.IMREAD_GRAYSCALE)
         
-        imagen_recortada = imagen[1:-1, 5:-5]  # Recortar bordes
+        imagen_recortada = imagen[1:-1, 5:-5] 
         _, umbral = cv2.threshold(imagen_recortada, 127, 255, cv2.THRESH_BINARY)
 
         contornos_internos = contar_contornos_internos(umbral)
@@ -320,25 +302,16 @@ def determinar_letra_desde_respuestas(carpeta):
     return (respuestas_detectadas)
 
 def validar_rtas(respuestas_detectadas):
-    # Lista de respuestas correctas
     rtas_correctas = ['C', 'B', 'A', 'D', 'B', 'B', 'A', 'B', 'D', 'D']
-
-    # Ordenar las claves del diccionario para asegurar correspondencia con las respuestas correctas
     respuestas_ordenadas = [respuestas_detectadas[f'pregunta{i+1}.png'] for i in range(10)]
-
-    # Lista para almacenar los resultados ("BIEN" o "MAL")
     resultados = []
     nota = 0
-
-    # Comparar cada respuesta detectada con la correcta
     for i, (rta_detectada, rta_correcta) in enumerate(zip(respuestas_ordenadas, rtas_correctas)):
         if rta_detectada == rta_correcta:
             resultados.append("BIEN")
             nota += 1
         else:
             resultados.append("MAL")
-
-        # Mostrar el resultado de cada pregunta
         print(f"Pregunta {i+1}: Detectada = {rta_detectada}, Correcta = {rta_correcta} -> {resultados[-1]}")
     
     print("Resultados finales:")
@@ -351,39 +324,29 @@ def validar_rtas(respuestas_detectadas):
     return resultados, estado
 
 def extraer_nombre(image_path, output_dir, top_margin=30, bottom_margin=10):
-    """Detecta líneas en la imagen y devuelve el contenido arriba y abajo de la línea más ancha."""
-    # Cargar la imagen
+    """Detectamos líneas en la imagen y devolvemos el contenido arriba y abajo de la línea más ancha."""
     img = cv2.imread(image_path)
     img_gray = cv2.cvtColor(img, cv2.COLOR_BGR2GRAY)
-
-    # Aplicar umbral para binarizar la imagen
     _, img_bin = cv2.threshold(img_gray, 150, 255, cv2.THRESH_BINARY_INV)
-
-    # Detectar líneas en la imagen
     lineas = cv2.HoughLinesP(img_bin, 1, np.pi / 180, threshold=100, minLineLength=100, maxLineGap=10)
-
-    # Encontrar la línea más ancha
     widest_line = None
     max_width = 0
 
     if lineas is not None:
         for linea in lineas:
             for x1, y1, x2, y2 in linea:
-                # Calcular el ancho de la línea
                 width = abs(y2 - y1)
                 if width > max_width:
                     max_width = width
-                    widest_line = (y1, y2)  # Guardamos las coordenadas y de la línea
+                    widest_line = (y1, y2)  
 
     if widest_line:
-        y_top = min(widest_line) - top_margin  # Parte superior de la línea con margen
-        y_bottom = max(widest_line) + bottom_margin  # Parte inferior de la línea con margen
+        y_top = min(widest_line) - top_margin  
+        y_bottom = max(widest_line) + bottom_margin  
 
-        # Asegurarse de que los valores de y estén dentro del rango de la imagen
         y_top = max(y_top, 0)
         y_bottom = min(y_bottom, img.shape[0] - 1)
 
-        # Recortar solo
         x_start = 5
         x_end = 10
         img_content = img[y_top:y_bottom, x_start:x_end]
@@ -405,64 +368,25 @@ def generar_imagen_final():
     cv2.imwrite('C:/Users/juana/OneDrive/Documentos/PDI1/TP PDI/imagenes_examenes/nombre_cortado.png', imagen_nombre)
 
 def generar_imagen_con_resultado(campo_nombre, resultado):
-    # Crear una nueva imagen en blanco
-    ancho, alto = 400, 200  # Define el tamaño de la imagen
+    ancho, alto = 400, 200  
     notas_finales = Image.new('RGB', (ancho, alto), color='white')
     draw = ImageDraw.Draw(notas_finales)
-
-    # Cargar la imagen recortada (campo de nombre)
     nombre_imagen = Image.open(campo_nombre)
     
-    # Pegar la imagen recortada en la nueva imagen
-    notas_finales.paste(nombre_imagen, (5, 5))  # Ajusta la posición según sea necesario
-
-    # Escribir el resultado de la función en la imagen
-    font = ImageFont.load_default()  # Cargar una fuente
+    notas_finales.paste(nombre_imagen, (5, 5)) 
+    font = ImageFont.load_default()  
     draw.text((150, 150), f'Resultado: {resultado}', fill='black', font=font)
 
-    # Guardar la nueva imagen
     notas_finales.save('C:/Users/juana/OneDrive/Documentos/PDI1/TP PDI/notas_finales.png')
 
     show_image('NOTAS FINALES', notas_finales)
 
-# ---------------------------------------------
+    
 # PROGRAMA PRINCIPAL
 # ---------------------------------------------
-
-def generar_imagen_con_resultado(campo_nombre, resultado):
-    # Crear una nueva imagen en blanco
-    ancho, alto = 400, 200  # Define el tamaño de la imagen
-    notas_finales = Image.new('RGB', (ancho, alto), color='white')
-    draw = ImageDraw.Draw(notas_finales)
-
-    # Cargar la imagen recortada (campo de nombre)
-    try:
-        nombre_imagen = Image.open(campo_nombre)
-    except FileNotFoundError:
-        print(f"Error: no se encontró el archivo {campo_nombre}")
-        return
-    
-    # Pegar la imagen recortada en la nueva imagen
-    notas_finales.paste(nombre_imagen, (10, 10))  # Ajusta la posición según sea necesario
-
-    # Escribir el resultado de la función en la imagen
-    font = ImageFont.load_default()  # Cargar una fuente
-    draw.text((150, 150), f'Resultado: {resultado}', fill='black', font=font)
-
-    # Guardar la nueva imagen
-    output_path = 'C:/Users/juana/OneDrive/Documentos/PDI1/TP PDI/notas_finales.png'
-    notas_finales.save(output_path)
-
-    show_image('NOTAS FINALES', cv2.cvtColor(np.array(notas_finales), cv2.COLOR_RGB2BGR))
-
 def ultima(examen, output_dir):
-    # Detectar y guardar bounding boxes
     detectar_bounding_boxes(examen)
-
-    # Detectar letras en el encabezado
     detectar_letras_y_validar_encabezado('imagenes_examenes/encabezado.png')
-
-    # Procesar las respuestas desde las imágenes de preguntas
     input_dir = 'imagenes_examenes'
     output_dir = 'respuestas'
     os.makedirs(output_dir, exist_ok=True)
@@ -472,7 +396,6 @@ def ultima(examen, output_dir):
             image_path = os.path.join(input_dir, filename)
             detectar_linea_y_extraer_respuesta(image_path, output_dir)
 
-    # Determinar las letras detectadas en las respuestas
     carpeta_respuestas = 'respuestas'
     respuestas_detectadas = determinar_letra_desde_respuestas(carpeta_respuestas)
     print(respuestas_detectadas)
@@ -482,14 +405,11 @@ def ultima(examen, output_dir):
     imagen_nombre = 'C:/Users/juana/OneDrive/Documentos/PDI1/TP PDI/imagenes_examenes/nombre_cortado.png'
     generar_imagen_con_resultado(imagen_nombre, estado)
 
-    # Mostrar la lista final de resultados
     print("Proceso completado.")
 
-# Listar todos los exámenes
 exams = ['examen_1.png', 'examen_2.png', 'examen_3.png', 'examen_4.png', 'examen_5.png']
 output_base_dir = 'IMAGENES_POR_EXAMEN'
 
-# Procesar cada examen
 for exam in exams:
     exam_path = f'C:/Users/juana/OneDrive/Documentos/PDI1/TP PDI/examenes/{exam}'
     output_dir = os.path.join(output_base_dir, f'{os.path.splitext(exam)[0]}_output')
