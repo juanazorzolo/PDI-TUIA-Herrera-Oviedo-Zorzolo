@@ -69,15 +69,25 @@ Antes de ejecutar el código, asegúrate de tener instaladas las siguientes bibl
 A continuación, se muestra un ejemplo de cómo se vería el proceso de detección en acción:
 
 nombre OK
+
 date OK
+
 class OK
+
 {'pregunta1.png': 'C', 'pregunta2.png': 'B', 'pregunta3.png': 'A', ...}
+
 Pregunta 1: Detectada = C, Correcta = C -> OK
+
 Pregunta 2: Detectada = B, Correcta = B -> OK
+
 ...
+
 Resultados finales:
+
 10
+
 Guardando la imagen en: notas\notas_finales5.png
+
 Proceso completado.
 
 
