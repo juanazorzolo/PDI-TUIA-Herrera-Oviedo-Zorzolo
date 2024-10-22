@@ -51,11 +51,11 @@ Antes de ejecutar el código, asegúrate de tener instaladas las siguientes bibl
 
 ## Uso
 
-1. **Descargar Carpeta Exámenes**: Asegúrate de que la carpeta se descargue correctamente, copia la ruta de la carpeta y pégala en el código, reemplazando `C:/Users/juana/OneDrive/Documentos/PDI1/TP PDI/examenes/`.
+1. **Descargar Carpeta Exámenes**: Asegúrate de que la carpeta se descargue correctamente y que se encuentre en el mismo directorio que el archivo "tp.py" .
 
-2. **Ejecutar el Código**: Abre tu terminal o consola de comandos, navega al directorio del proyecto y ejecuta el siguiente comando: `python codigo.py`. Esto ejecutará el script que procesa las imágenes.
+2. **Ejecutar el Código**: Abre tu terminal o consola de comandos, navega al directorio del proyecto y ejecuta el archivo `tp.py`. Esto ejecutará el script que procesa las imágenes.
 
-3. **Resultados**: Las imágenes de las áreas detectadas (encabezado y preguntas) se guardarán en la carpeta `imagenes_examenes/`. El resultado final (con el nombre del alumno y la nota) se guardará como `notas_finales.png` en la raíz del proyecto.
+3. **Resultados**: Las imágenes de las áreas detectadas (encabezado y preguntas) se guardarán en la carpeta `imagenes_examenes/`. El resultado final (con el nombre del alumno y la nota) se guardará como `notas_finales.png` en la carpeta `notas`.
 
 ## Funcionalidades
 
@@ -68,17 +68,16 @@ Antes de ejecutar el código, asegúrate de tener instaladas las siguientes bibl
 
 A continuación, se muestra un ejemplo de cómo se vería el proceso de detección en acción:
 
-Pregunta 1: Detectada = C, Correcta = C -> BIEN  
-Pregunta 2: Detectada = B, Correcta = B -> BIEN  
-...  
-Resultados finales:  
-8  
+nombre OK
+date OK
+class OK
+{'pregunta1.png': 'C', 'pregunta2.png': 'B', 'pregunta3.png': 'A', ...}
+Pregunta 1: Detectada = C, Correcta = C -> OK
+Pregunta 2: Detectada = B, Correcta = B -> OK
+...
+Resultados finales:
+10
+Guardando la imagen en: notas\notas_finales5.png
+Proceso completado.
 
-## Notas
-
-- Asegúrate de reemplazar:
-
-  `'C:/Users/juana/OneDrive/Documentos/PDI1/TP PDI/imagenes_examenes/nombre_cortado.png'` por `'ruta carpeta propia.../imagenes_examenes/nombre_cortado.png'`
-
-  `'C:/Users/juana/OneDrive/Documentos/PDI1/TP PDI/notas_finales.png'` por `'ruta carpeta propia.../notas_finales.png'`
 
