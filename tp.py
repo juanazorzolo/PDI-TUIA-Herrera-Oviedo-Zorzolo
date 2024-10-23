@@ -57,7 +57,7 @@ def process_multiple_window_sizes(img, window_sizes):
         plt.show()
 
 # Carga de la imagen 
-img = cv2.imread('C:/Users/juana/OneDrive/Documentos/PDI1/TP PDI/Imagen_con_detalles_escondidos.tif', cv2.IMREAD_GRAYSCALE)
+img = cv2.imread('Imagen_con_detalles_escondidos.tif', cv2.IMREAD_GRAYSCALE)
 
 # Ecualización local de histograma con múltiples tamaños de ventana
 window_sizes = [(7, 7), (15, 15), (31, 31)]
@@ -66,7 +66,7 @@ process_multiple_window_sizes(img, window_sizes)
 
 # --- Ejercicio 2 (corregir examen) -------------------------------------------
 
-# FUNCIONES AUXILIARES 
+# FUNCIÓN AUXILIAR 
 # ---------------------------------------------
 
 def show_image(title, image, cmap='gray'):
@@ -80,42 +80,16 @@ def show_image(title, image, cmap='gray'):
     plt.axis('off')
     plt.show()
 
-def is_too_close(new_box, boxes, min_distance=10):
+# PROCESAMIENTO DE IMAGEN Y DETECCIÓN DE CONTORNOS
+# ---------------------------------------------
+
+def separar_cajas(new_box, boxes, min_distance=10):
     """Verificamos si una nueva caja está demasiado cerca de las existentes."""
     x1, y1, w1, h1 = new_box
     for (x2, y2, w2, h2) in boxes:
         if abs(x1 - x2) < min_distance and abs(y1 - y2) < min_distance:
             return True
     return False
-
-def validar_encabezado(name, date, clase):
-    """Validamos que el encabezado cumpla las condiciones requeridas."""
-    if len(name) <= 25 and contar_palabras(name) == 2:
-        print("nombre OK")
-    else:
-        print("nombre MAL")
-
-    if len(date) == 8:
-        print("date OK")
-    else:
-        print("date MAL")
-
-    if len(clase) == 1:
-        print("class OK")
-    else:
-        print("class MAL")
-
-def contar_palabras(name):
-    """Contamos las palabras en el nombre detectado."""
-    palabras = 1
-    for i in range(1, len(name)):
-        espacio = name[i]['info'][0] - name[i - 1]['info'][0]
-        if espacio > 13:
-            palabras += 1
-    return palabras
-
-# PROCESAMIENTO DE IMAGEN Y DETECCIÓN DE CONTORNOS
-# ---------------------------------------------
 
 def detectar_bounding_boxes(image_path):
     """Detectamos y guardamos las bounding boxes en la imagen de entrada."""
@@ -143,13 +117,13 @@ def filtrar_bounding_boxes(contours_otsu, contours_adaptive):
     bounding_boxes = []
     for contour in contours_otsu:
         x, y, w, h = cv2.boundingRect(contour)
-        if not is_too_close((x, y, w, h), bounding_boxes) and \
-           ((241 > w > 5) and (126 > h > 121) and (y > 175 or y < 70)):
+        if not separar_cajas((x, y, w, h), bounding_boxes) and \
+           (241 > w > 5) and (126 > h > 121):
             bounding_boxes.append((x, y, w, h))
     
     for contour in contours_adaptive:
         x, y, w, h = cv2.boundingRect(contour)
-        if y < 100 and 5 < h < 50 and not is_too_close((x, y, w, h), bounding_boxes):
+        if y < 100 and 5 < h < 50 and not separar_cajas((x, y, w, h), bounding_boxes):
             bounding_boxes.append((x, y, w, h))
     
     return sorted(bounding_boxes, key=lambda box: (box[0], box[1]))
@@ -172,17 +146,31 @@ def guardar_bounding_boxes(image, bounding_boxes):
 # DETECCIÓN DE LETRAS EN EL ENCABEZADO
 # ---------------------------------------------
 
-def detectar_letras_y_validar_encabezado(image_path):
-    """Detectamos letras en el encabezado y validamos su formato."""
-    img = cv2.imread(image_path, cv2.IMREAD_GRAYSCALE)
-    img_bin = cv2.adaptiveThreshold(img, 255, cv2.ADAPTIVE_THRESH_GAUSSIAN_C, cv2.THRESH_BINARY_INV, 15, 3)
+def contar_palabras(name):
+    """Contamos las palabras en el nombre detectado."""
+    palabras = 1
+    for i in range(1, len(name)):
+        espacio = name[i]['info'][0] - name[i - 1]['info'][0]
+        if espacio > 13:
+            palabras += 1
+    return palabras
 
-    img_row_zeros = img_bin.any(axis=1)
-    renglones_indxs = np.argwhere(np.diff(img_row_zeros))[::2] + 1
+def validar_encabezado(name, date, clase):
+    """Validamos que el encabezado cumpla las condiciones requeridas."""
+    if len(name) <= 25 and contar_palabras(name) == 2:
+        print("nombre OK")
+    else:
+        print("nombre MAL")
 
-    letras = detectar_letras(img, img_bin, renglones_indxs)
-    name, date, clase = separar_letras(letras)
-    validar_encabezado(name, date, clase)
+    if len(date) == 8:
+        print("date OK")
+    else:
+        print("date MAL")
+
+    if len(clase) == 1:
+        print("class OK")
+    else:
+        print("class MAL")
 
 def detectar_letras(imagen, img_bin, renglones_indxs):
     """Detectamos las letras en cada renglón."""
@@ -195,7 +183,6 @@ def detectar_letras(imagen, img_bin, renglones_indxs):
         for contour in contours:
             x, y, w, h = cv2.boundingRect(contour)
             if w > 1 and h > 2:
-                #letras.append({"renglón": i + 1, "cord": [start + y, x, start + y + h, x + w], "info": (x, y, w, h)})
                 letras.append({"info": (x, y, w, h)})
                 cv2.rectangle(imagen, (x, start + y), (x + w, start + y + h), (0, 255, 0), 2) 
 
@@ -209,14 +196,20 @@ def separar_letras(letras):
     clase = [l for l in letras if 411 < l['info'][0] < 542]
     return name, date, clase
 
+def detectar_letras_y_validar_encabezado(image_path):
+    """Detectamos letras en el encabezado y validamos su formato."""
+    img = cv2.imread(image_path, cv2.IMREAD_GRAYSCALE)
+    img_bin = cv2.adaptiveThreshold(img, 255, cv2.ADAPTIVE_THRESH_GAUSSIAN_C, cv2.THRESH_BINARY_INV, 15, 3)
+
+    img_row_zeros = img_bin.any(axis=1)
+    renglones_indxs = np.argwhere(np.diff(img_row_zeros))[::2] + 1
+
+    letras = detectar_letras(img, img_bin, renglones_indxs)
+    name, date, clase = separar_letras(letras)
+    validar_encabezado(name, date, clase)
 
 # DETECCIÓN DE LÍNEAS Y RESPUESTAS
 # ---------------------------------------------
-
-def contar_contornos_internos(imagen_bin):
-    imagen_bin = cv2.bitwise_not(imagen_bin)
-    contornos_internos, _ = cv2.findContours(imagen_bin, cv2.RETR_CCOMP, cv2.CHAIN_APPROX_SIMPLE)
-    return contornos_internos
 
 def detectar_linea_y_extraer_respuesta(image_path, output_dir):
     """Detectamos línea horizontal en cada pregunta y extraemos el texto encima."""
@@ -232,7 +225,6 @@ def detectar_linea_y_extraer_respuesta(image_path, output_dir):
 
     img_contours = cv2.cvtColor(image, cv2.COLOR_GRAY2BGR)
     cv2.drawContours(img_contours, contours, -1, (0, 255, 0), 2)
-    #show_image('Contornos Detectados', img_contours, cmap=None)
 
     linea_negra = None
     altura_maxima = 0
@@ -248,9 +240,14 @@ def detectar_linea_y_extraer_respuesta(image_path, output_dir):
         roi_respuesta = image[max(0, y-15):y, x:x+w]
         output_filename = os.path.join(output_dir, os.path.basename(image_path))
         cv2.imwrite(output_filename, roi_respuesta)
-        #show_image(f"Respuesta Detectada en {os.path.basename(image_path)}", roi_respuesta)
     else:
         print(f"No se detectó línea horizontal en {os.path.basename(image_path)}")
+
+def contar_contornos_internos(imagen_bin):
+    "Detectamos y devolvemos contornos internos para la detección de letras"
+    imagen_bin = cv2.bitwise_not(imagen_bin)
+    contornos_internos, _ = cv2.findContours(imagen_bin, cv2.RETR_CCOMP, cv2.CHAIN_APPROX_SIMPLE)
+    return contornos_internos
 
 def hay_linea_vertical(contorno):
     # Aproximamos el contorno para reducir el número de puntos
@@ -295,8 +292,6 @@ def determinar_letra_desde_respuestas(carpeta):
         respuestas_detectadas[nombre_archivo] = letra
 
         cv2.putText(imagen, letra, (10, 30), cv2.FONT_HERSHEY_SIMPLEX, 1, (0, 0, 255), 2)
-        #cv2.imshow("Letra Detectada", imagen)
-        cv2.waitKey(500)
 
     return (respuestas_detectadas)
 
@@ -321,8 +316,10 @@ def validar_rtas(respuestas_detectadas):
     else:
         estado = "DESAPROBADO"
 
-    return resultados, estado
+    return estado
 
+# GENERAR IMAGEN
+# ---------------------------------------------
 def extraer_nombre(image_path, output_dir, top_margin=30, bottom_margin=10):
     """Detectamos líneas en la imagen y devolvemos el contenido arriba y abajo de la línea más ancha."""
     img = cv2.imread(image_path)
@@ -335,7 +332,7 @@ def extraer_nombre(image_path, output_dir, top_margin=30, bottom_margin=10):
     _, img_bin = cv2.threshold(blurred, 150, 255, cv2.THRESH_BINARY_INV)
 
     # Detectar líneas usando Hough Transform
-    lineas = cv2.HoughLinesP(img_bin, 1, np.pi / 180, threshold=50, minLineLength=50, maxLineGap=10)  # Ajustar parámetros aquí
+    lineas = cv2.HoughLinesP(img_bin, 1, np.pi / 180, threshold=30, minLineLength=30, maxLineGap=10)
     widest_line = None
     max_width = 0
 
@@ -356,7 +353,7 @@ def extraer_nombre(image_path, output_dir, top_margin=30, bottom_margin=10):
 
         x_start = 50
         x_end = 245
-        img_content = img[y_top:y_bottom, x_start:x_end]
+        img_content = img[y_top:y_bottom, x_start:x_end] 
         
         cv2.imwrite(output_dir, img_content)
         return img_content
@@ -364,19 +361,7 @@ def extraer_nombre(image_path, output_dir, top_margin=30, bottom_margin=10):
         print(f"No se encontraron líneas en la imagen: {image_path}")
         return None
     
-def generar_imagen_final(image_path, output_dir):
-    extraer_nombre(image_path, output_dir)
-    nombre_cortado = cv2.imread(output_dir)
-    
-    if nombre_cortado is None:
-        print(f"Error: no se pudo cargar la imagen en {image_path}")
-        return
-    else:
-        show_image('Nombre del Alumno', nombre_cortado)
-        return nombre_cortado
-
 def generar_imagen_con_resultado(campo_nombre, resultado, numero_examen):
-    """Genera una imagen con el nombre y el resultado del examen, guardándola con un nombre único."""
     ancho, alto = 400, 70 
     notas_finales = Image.new('RGB', (ancho, alto), color='white')
     draw = ImageDraw.Draw(notas_finales)
@@ -389,18 +374,57 @@ def generar_imagen_con_resultado(campo_nombre, resultado, numero_examen):
 
     output_dir = 'notas'
     os.makedirs(output_dir, exist_ok=True)
-    
-    # Cambiar el nombre del archivo para incluir el número del examen
+   
     filename = f'notas_finales{numero_examen}.png'
     print(f"Guardando la imagen en: {os.path.join(output_dir, filename)}")
-    
-    # Guardar la imagen con un nombre único
     notas_finales.save(os.path.join(output_dir, filename))
 
     show_image('NOTAS FINALES', notas_finales)
 
+def unir_imagenes(ruta_carpeta):
+    salida = os.path.join(ruta_carpeta, 'imagen_unida.png')
 
-    
+    # Eliminar la imagen unida si ya existe
+    if os.path.exists(salida):
+        os.remove(salida)
+        print(f"Imagen anterior eliminada: {salida}")
+
+    # Obtener todas las imágenes del directorio
+    imagenes = [os.path.join(ruta_carpeta, img)
+                for img in os.listdir(ruta_carpeta)
+                if img.endswith(('.png', '.jpg', '.jpeg'))]
+
+    if not imagenes:
+        print("Error: No se encontraron imágenes en la carpeta.")
+        return
+
+    # Cargar las imágenes con OpenCV
+    imagenes_cargadas = [cv2.imread(img) for img in imagenes]
+
+    # Verificar si alguna imagen no se cargó correctamente
+    if any(img is None for img in imagenes_cargadas):
+        print("Error: No se pudo cargar una o más imágenes.")
+        return
+
+    # Calcular el ancho máximo y la altura total de la imagen combinada
+    ancho_maximo = max(img.shape[1] for img in imagenes_cargadas)
+    altura_total = sum(img.shape[0] for img in imagenes_cargadas)
+
+    # Crear una imagen en blanco (RGB) con el tamaño adecuado
+    imagen_final = Image.new('RGB', (ancho_maximo, altura_total), color=(255, 255, 255))
+
+    y_offset = 0  # Desplazamiento vertical
+    for img in imagenes_cargadas:
+        # Convertir la imagen de OpenCV (BGR) a PIL (RGB)
+        img_pil = Image.fromarray(cv2.cvtColor(img, cv2.COLOR_BGR2RGB))
+        imagen_final.paste(img_pil, (0, y_offset))
+        y_offset += img.shape[0]  
+
+    imagen_final.save(salida)
+    print(f"Imagen final guardada como: {salida}")
+    show_image('imagen final', imagen_final)
+
+
 # PROGRAMA PRINCIPAL
 # ---------------------------------------------
 def procesar(examen, output_dir, numero_examen):
@@ -418,11 +442,11 @@ def procesar(examen, output_dir, numero_examen):
     carpeta_respuestas = 'respuestas'
     respuestas_detectadas = determinar_letra_desde_respuestas(carpeta_respuestas)
     print(respuestas_detectadas)
-    resultados_finales, estado = validar_rtas(respuestas_detectadas)
+    estado = validar_rtas(respuestas_detectadas)
 
     image_path = 'imagenes_examenes/encabezado.png'
     output_dir = 'imagenes_examenes/nombre_cortado.png'
-    nombre_cortado = generar_imagen_final(image_path, output_dir)
+    nombre_cortado = extraer_nombre(image_path, output_dir)
     
     generar_imagen_con_resultado(nombre_cortado, estado, numero_examen)
 
@@ -431,8 +455,9 @@ def procesar(examen, output_dir, numero_examen):
 exams = ['examen_1.png', 'examen_2.png', 'examen_3.png', 'examen_4.png', 'examen_5.png']
 output_base_dir = 'IMAGENES_POR_EXAMEN'
 
-for i, exam in enumerate(exams, start=1):  # Usamos `enumerate` para obtener el número del examen
+for i, exam in enumerate(exams, start=1): 
     exam_path = f'examenes/{exam}'
     output_dir = os.path.join(output_base_dir, f'{os.path.splitext(exam)[0]}_output')
-    #os.makedirs(output_dir, exist_ok=True)  # Asegúrate de que el directorio de salida exista
-    procesar(exam_path, output_dir, i)  # Pasar el índice como número del examen
+    procesar(exam_path, output_dir, i) 
+
+unir_imagenes('notas')
